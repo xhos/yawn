@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,16 +32,10 @@ func run() error {
 		return fmt.Errorf("GREETD_SOCK not found")
 	}
 
-	conn, err := net.Dial("unix", sock)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	m := tui.InitialModel(conn, cmd, user, width)
+	m := tui.InitialModel(sock, cmd, user, width)
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	_, err = p.Run()
+	_, err := p.Run()
 	if err != nil {
 		return err
 	}

@@ -22,20 +22,23 @@ func (m *Model) View() string {
 
 	var content string
 
+	errorLine := ""
+	if m.errorMsg != "" {
+		errorLine = errorStyle.Render(m.errorMsg)
+	}
+
 	if m.editingCommand {
-		content = lipgloss.JoinVertical(lipgloss.Center, m.command.View())
+		content = lipgloss.JoinVertical(lipgloss.Center,
+			m.command.View(),
+			"",
+			errorLine,
+		)
 	} else {
 		content = lipgloss.JoinVertical(lipgloss.Center,
 			m.username.View(),
 			m.password.View(),
-		)
-	}
-
-	if m.errorMsg != "" {
-		content = lipgloss.JoinVertical(lipgloss.Left,
-			content,
 			"",
-			errorStyle.Render(m.errorMsg),
+			errorLine,
 		)
 	}
 

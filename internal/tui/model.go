@@ -24,7 +24,8 @@ const (
 )
 
 type Model struct {
-	conn net.Conn
+	sockPath string
+	conn     net.Conn
 
 	username textinput.Model
 	password textinput.Model
@@ -33,6 +34,7 @@ type Model struct {
 	focused        focus
 	editingCommand bool
 	waitingForPAM  bool
+	starting       bool
 
 	errorMsg string
 	w, h     int
@@ -42,7 +44,7 @@ func (m *Model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func InitialModel(conn net.Conn, cmd, username string, inputWidth int) *Model {
+func InitialModel(sockPath, cmd, username string, inputWidth int) *Model {
 	usernameInput := textinput.New()
 	usernameInput.Placeholder = "username"
 	usernameInput.Width = inputWidth
@@ -68,7 +70,7 @@ func InitialModel(conn net.Conn, cmd, username string, inputWidth int) *Model {
 	}
 
 	m := &Model{
-		conn:     conn,
+		sockPath: sockPath,
 		username: usernameInput,
 		password: passwordInput,
 		command:  commandInput,

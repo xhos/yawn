@@ -18,9 +18,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
-			if m.conn != nil {
-				cancel(m.conn)
-			}
+			m.cancelAndClose()
 			return m, tea.Quit
 
 		case "esc":
@@ -30,9 +28,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateFocus()
 				return m, nil
 			}
-			if m.conn != nil {
-				cancel(m.conn)
-			}
+			m.cancelAndClose()
 			return m, tea.Quit
 
 		case "f2":
@@ -64,6 +60,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			if m.waitingForPAM {
+				return m, nil
+			}
+
 			if m.username.Value() == "" {
 				m.focused = focusUsername
 				m.updateFocus()
@@ -80,7 +80,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.setError("command not set (press F2 to edit)")
 			}
 
+			if m.conn != nil {
+				m.conn.Close()
+				m.conn = nil
+			}
+
+			conn, err := net.Dial("unix", m.sockPath)
+			if err != nil {
+				return m, m.setError(fmt.Sprintf("failed to connect: %s", err))
+			}
+			m.conn = conn
+
 			m.waitingForPAM = true
+			m.starting = false
 
 			req := &greetd.Request{
 				Type:     "create_session",
@@ -88,6 +100,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if err := req.Encode(m.conn); err != nil {
 				m.waitingForPAM = false
+				m.conn.Close()
+				m.conn = nil
 				return m, m.setError(fmt.Sprintf("failed to create session: %s", err))
 			}
 
@@ -98,38 +112,43 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.waitingForPAM = false
 
 		if msg.err != nil {
+			m.cancelAndClose()
+			m.starting = false
+			m.password.SetValue("")
 			return m, m.setError(fmt.Sprintf("connection error: %s", msg.err))
 		}
 
 		switch msg.resp.Type {
 		case "success":
+			if m.starting {
+				return m, tea.Quit
+			}
+
+			m.starting = true
 			req := &greetd.Request{
 				Type: "start_session",
 				Cmd:  []string{"sh", "-c", m.command.Value()},
+				Env:  []string{},
 			}
 			if err := req.Encode(m.conn); err != nil {
+				m.cancelAndClose()
+				m.starting = false
+				m.password.SetValue("")
 				return m, m.setError(fmt.Sprintf("failed to start session: %s", err))
 			}
 
 			m.waitingForPAM = true
-			return m, func() tea.Msg {
-				resp, err := greetd.DecodeResponse(m.conn)
-				if err != nil {
-					return greetdResponseMsg{err: err}
-				}
-				if resp.Type == "error" {
-					return greetdResponseMsg{err: fmt.Errorf("%s: %s", resp.ErrorType, resp.Description)}
-				}
-				if resp.Type != "success" {
-					return greetdResponseMsg{err: fmt.Errorf("unexpected response: %s", resp.Type)}
-				}
-				return tea.Quit()
-			}
+			return m, m.waitForResponse()
 
 		case "error":
-			cancel(m.conn)
+			m.cancelAndClose()
+			m.starting = false
 			m.password.SetValue("")
-			return m, m.setError(fmt.Sprintf("authentication failed: %s", msg.resp.Description))
+
+			if msg.resp.ErrorType == "auth_error" {
+				return m, m.setError("login incorrect")
+			}
+			return m, m.setError(fmt.Sprintf("error: %s", msg.resp.Description))
 
 		case "auth_message":
 			switch msg.resp.AuthMessageType {
@@ -140,6 +159,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Response: &answer,
 				}
 				if err := req.Encode(m.conn); err != nil {
+					m.cancelAndClose()
+					m.starting = false
+					m.password.SetValue("")
 					return m, m.setError(fmt.Sprintf("failed to respond: %s", err))
 				}
 				m.waitingForPAM = true
@@ -151,6 +173,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Response: nil,
 				}
 				if err := req.Encode(m.conn); err != nil {
+					m.cancelAndClose()
+					m.starting = false
+					m.password.SetValue("")
 					return m, m.setError(fmt.Sprintf("failed to respond: %s", err))
 				}
 				m.waitingForPAM = true
@@ -161,15 +186,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(m.waitForResponse(), cmd)
 
 			default:
-				cancel(m.conn)
+				m.cancelAndClose()
+				m.starting = false
+				m.password.SetValue("")
 				cmd := m.setError(fmt.Sprintf("unknown auth message type: %s", msg.resp.AuthMessageType))
-				return m, tea.Sequence(cmd, tea.Quit)
+				return m, cmd
 			}
 
 		default:
-			cancel(m.conn)
+			m.cancelAndClose()
+			m.starting = false
+			m.password.SetValue("")
 			cmd := m.setError(fmt.Sprintf("unexpected response: %s", msg.resp.Type))
-			return m, tea.Sequence(cmd, tea.Quit)
+			return m, cmd
 		}
 
 	case clearErrorMsg:
@@ -211,14 +240,18 @@ func (m *Model) waitForResponse() tea.Cmd {
 	}
 }
 
+func (m *Model) cancelAndClose() {
+	if m.conn != nil {
+		req := &greetd.Request{Type: "cancel_session"}
+		req.Encode(m.conn)
+		m.conn.Close()
+		m.conn = nil
+	}
+}
+
 func (m *Model) setError(msg string) tea.Cmd {
 	m.errorMsg = msg
 	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
 		return clearErrorMsg{}
 	})
-}
-
-func cancel(conn net.Conn) {
-	req := &greetd.Request{Type: "cancel_session"}
-	req.Encode(conn)
 }
