@@ -35,16 +35,21 @@ type Model struct {
 	editingCommand bool
 	waitingForPAM  bool
 	starting       bool
+	preauth        bool
+	preauthWaiting bool
 
 	errorMsg string
 	w, h     int
 }
 
 func (m *Model) Init() tea.Cmd {
+	if m.preauth && m.username.Value() != "" && m.command.Value() != "" {
+		return m.startAuth()
+	}
 	return textinput.Blink
 }
 
-func InitialModel(sockPath, cmd, username string, inputWidth int) *Model {
+func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool) *Model {
 	usernameInput := textinput.New()
 	usernameInput.Placeholder = "username"
 	usernameInput.Width = inputWidth
@@ -75,6 +80,7 @@ func InitialModel(sockPath, cmd, username string, inputWidth int) *Model {
 		password: passwordInput,
 		command:  commandInput,
 		focused:  focusUsername,
+		preauth:  preauth,
 	}
 
 	if username != "" {

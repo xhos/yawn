@@ -64,6 +64,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			if m.preauthWaiting {
+				answer := m.password.Value()
+				req := &greetd.Request{
+					Type:     "post_auth_message_response",
+					Response: &answer,
+				}
+				if err := req.Encode(m.conn); err != nil {
+					m.cancelAndClose()
+					m.starting = false
+					m.preauthWaiting = false
+					m.password.SetValue("")
+					return m, m.setError(fmt.Sprintf("failed to respond: %s", err))
+				}
+				m.preauthWaiting = false
+				m.waitingForPAM = true
+				return m, m.waitForResponse()
+			}
+
 			if m.username.Value() == "" {
 				m.focused = focusUsername
 				m.updateFocus()
@@ -80,32 +98,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.setError("command not set (press F2 to edit)")
 			}
 
-			if m.conn != nil {
-				m.conn.Close()
-				m.conn = nil
-			}
-
-			conn, err := net.Dial("unix", m.sockPath)
-			if err != nil {
-				return m, m.setError(fmt.Sprintf("failed to connect: %s", err))
-			}
-			m.conn = conn
-
-			m.waitingForPAM = true
-			m.starting = false
-
-			req := &greetd.Request{
-				Type:     "create_session",
-				Username: m.username.Value(),
-			}
-			if err := req.Encode(m.conn); err != nil {
-				m.waitingForPAM = false
-				m.conn.Close()
-				m.conn = nil
-				return m, m.setError(fmt.Sprintf("failed to create session: %s", err))
-			}
-
-			return m, m.waitForResponse()
+			return m, m.startAuth()
 		}
 
 	case greetdResponseMsg:
@@ -154,6 +147,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.resp.AuthMessageType {
 			case "secret", "visible":
 				answer := m.password.Value()
+				if m.preauthWaiting && answer == "" {
+					m.waitingForPAM = false
+					return m, nil
+				}
+
 				req := &greetd.Request{
 					Type:     "post_auth_message_response",
 					Response: &answer,
@@ -164,6 +162,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.password.SetValue("")
 					return m, m.setError(fmt.Sprintf("failed to respond: %s", err))
 				}
+				m.preauthWaiting = false
 				m.waitingForPAM = true
 				return m, m.waitForResponse()
 
@@ -254,4 +253,37 @@ func (m *Model) setError(msg string) tea.Cmd {
 	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
 		return clearErrorMsg{}
 	})
+}
+
+func (m *Model) startAuth() tea.Cmd {
+	if m.conn != nil {
+		m.conn.Close()
+		m.conn = nil
+	}
+
+	conn, err := net.Dial("unix", m.sockPath)
+	if err != nil {
+		return m.setError(fmt.Sprintf("failed to connect: %s", err))
+	}
+	m.conn = conn
+
+	m.waitingForPAM = true
+	m.starting = false
+	if m.preauth {
+		m.preauthWaiting = true
+	}
+
+	req := &greetd.Request{
+		Type:     "create_session",
+		Username: m.username.Value(),
+	}
+	if err := req.Encode(m.conn); err != nil {
+		m.waitingForPAM = false
+		m.preauthWaiting = false
+		m.conn.Close()
+		m.conn = nil
+		return m.setError(fmt.Sprintf("failed to create session: %s", err))
+	}
+
+	return m.waitForResponse()
 }
