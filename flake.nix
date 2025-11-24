@@ -22,19 +22,19 @@
     packages = forAllSystems (pkgs: {
       yawn = pkgs.buildGoModule {
         pname = "yawn";
-        version = "0.1.0";
+        version = "0.1.1";
         src = ./.;
         vendorHash = "sha256-RNbS40G+8rtwlSJgYLN1puTCytGfXdagQTEs6sIXwnM=";
         ldflags = ["-s" "-w"];
         subPackages = ["cmd/yawn"];
       };
 
-      default = self.packages.${pkgs.system}.yawn;
+      default = self.packages.${pkgs.stdenv.hostPlatform.system}.yawn;
     });
 
     # dev stuff
     checks = forAllSystems (pkgs: {
-      pre-commit = git-hooks.lib.${pkgs.system}.run {
+      pre-commit = git-hooks.lib.${pkgs.stdenv.hostPlatform.system}.run {
         src = ./.;
         hooks = {
           govet.enable = true;
@@ -53,7 +53,7 @@
             go run ./cmd/greetd-stub "$@"
           '')
         ];
-        shellHook = self.checks.${pkgs.system}.pre-commit.shellHook;
+        shellHook = self.checks.${pkgs.stdenv.hostPlatform.system}.pre-commit.shellHook;
       };
     });
 
@@ -69,7 +69,7 @@
           services.greetd = {
             enable = true;
             settings.default_session = {
-              command = "${self.packages.x86_64-linux.yawn}/bin/yawn -cmd bash -preauth -user test";
+              command = "${self.packages.x86_64-linux.yawn}/bin/yawn -cmd bash -user test";
               user = "greeter";
             };
           };

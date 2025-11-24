@@ -48,7 +48,7 @@ Then configure greetd:
 ```nix
 services.greetd = {
   enable = true;
-  settings.default_session.command = "${inputs.yawn.packages.${pkgs.system}.default}/bin/yawn -cmd Hyprland";
+  settings.default_session.command = "${inputs.yawn.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/yawn -cmd Hyprland";
 };
 ```
 
@@ -105,3 +105,5 @@ Other greeters worth checking out, these are the ones I tried before making yawn
 ## Contributing
 
 PRs and issues are welcome. Packaging for other distros is especially appreciated since I only use NixOS.
+word
+                                                                                                                                           pass
