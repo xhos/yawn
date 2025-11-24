@@ -25,8 +25,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.editingCommand {
 				m.editingCommand = false
 				m.focused = focusPassword
-				m.updateFocus()
-				return m, nil
+				return m, m.updateFocus()
 			}
 			m.cancelAndClose()
 			return m, tea.Quit
@@ -39,14 +38,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.focused = focusPassword
 				}
-				m.updateFocus()
+				return m, m.updateFocus()
 			}
 			return m, nil
 
 		case "tab", "shift+tab":
 			if !m.waitingForPAM && !m.editingCommand {
 				m.focused = (m.focused + 1) % 2
-				m.updateFocus()
+				return m, m.updateFocus()
 			}
 			return m, nil
 
@@ -56,8 +55,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.editingCommand {
 				m.editingCommand = false
 				m.focused = focusPassword
-				m.updateFocus()
-				return m, nil
+				return m, m.updateFocus()
 			}
 
 			if m.waitingForPAM {
@@ -84,14 +82,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if m.username.Value() == "" {
 				m.focused = focusUsername
-				m.updateFocus()
-				return m, nil
+				return m, m.updateFocus()
 			}
 
 			if m.password.Value() == "" {
 				m.focused = focusPassword
-				m.updateFocus()
-				return m, nil
+				return m, m.updateFocus()
 			}
 
 			if m.command.Value() == "" {
@@ -201,7 +197,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case clearErrorMsg:
-		m.errorMsg = ""
+		if msg.id == m.errorID {
+			m.errorMsg = ""
+		}
 		return m, nil
 	}
 
@@ -217,19 +215,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *Model) updateFocus() {
+func (m *Model) updateFocus() tea.Cmd {
 	m.username.Blur()
 	m.password.Blur()
 	m.command.Blur()
 
 	switch m.focused {
 	case focusUsername:
-		m.username.Focus()
+		return m.username.Focus()
 	case focusPassword:
-		m.password.Focus()
+		return m.password.Focus()
 	case focusCommand:
-		m.command.Focus()
+		return m.command.Focus()
 	}
+	return nil
 }
 
 func (m *Model) waitForResponse() tea.Cmd {
@@ -250,8 +249,10 @@ func (m *Model) cancelAndClose() {
 
 func (m *Model) setError(msg string) tea.Cmd {
 	m.errorMsg = msg
+	m.errorID++
+	errorID := m.errorID
 	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
-		return clearErrorMsg{}
+		return clearErrorMsg{id: errorID}
 	})
 }
 

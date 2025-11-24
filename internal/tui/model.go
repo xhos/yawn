@@ -14,7 +14,9 @@ type greetdResponseMsg struct {
 	err  error
 }
 
-type clearErrorMsg struct{}
+type clearErrorMsg struct {
+	id int
+}
 
 type focus int
 
@@ -38,8 +40,10 @@ type Model struct {
 	starting       bool
 	preauth        bool
 	preauthWaiting bool
+	minimal        bool
 
 	errorMsg    string
+	errorID     int
 	accentColor string
 	w, h        int
 }
@@ -48,10 +52,10 @@ func (m *Model) Init() tea.Cmd {
 	if m.preauth && m.username.Value() != "" && m.command.Value() != "" {
 		return m.startAuth()
 	}
-	return textinput.Blink
+	return m.updateFocus()
 }
 
-func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool, accentColor string) *Model {
+func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool, accentColor string, minimal bool) *Model {
 	accent := lipgloss.NewStyle().Foreground(lipgloss.Color("#" + accentColor))
 
 	usernameInput := textinput.New()
@@ -75,7 +79,7 @@ func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool, 
 
 	commandInput := textinput.New()
 	commandInput.Placeholder = "session command"
-	commandInput.Width = inputWidth
+	commandInput.Width = lipgloss.Width(commandInput.Placeholder)
 	commandInput.Prompt = ""
 	commandInput.PromptStyle = accent
 	commandInput.TextStyle = accent
@@ -90,6 +94,7 @@ func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool, 
 		command:     commandInput,
 		focused:     focusUsername,
 		preauth:     preauth,
+		minimal:     minimal,
 		accentColor: accentColor,
 	}
 
@@ -97,6 +102,5 @@ func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool, 
 		m.focused = focusPassword
 	}
 
-	m.updateFocus()
 	return m
 }

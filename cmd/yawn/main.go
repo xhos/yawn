@@ -22,12 +22,14 @@ func run() error {
 	var width int
 	var preauth bool
 	var color string
+	var minimal bool
 
 	flag.StringVar(&cmd, "cmd", "", "command to run")
 	flag.StringVar(&user, "user", "", "hardcodes a username to auth as")
 	flag.IntVar(&width, "width", 8, "width of the input fields")
 	flag.BoolVar(&preauth, "preauth", false, "start the auth loop immediately")
 	flag.StringVar(&color, "color", "f5f5f5", "accent color")
+	flag.BoolVar(&minimal, "minimal", false, "hide help and command display")
 
 	flag.Parse()
 
@@ -36,7 +38,7 @@ func run() error {
 		return fmt.Errorf("GREETD_SOCK not found")
 	}
 
-	m := tui.InitialModel(sock, cmd, user, width, preauth, color)
+	m := tui.InitialModel(sock, cmd, user, width, preauth, color, minimal)
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err := p.Run()

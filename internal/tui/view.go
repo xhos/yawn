@@ -12,44 +12,55 @@ var (
 )
 
 func (m *Model) View() string {
-	cmdDisplay := m.command.Value()
-	if cmdDisplay == "" {
-		cmdDisplay = "not set"
+	var sections []string
+
+	// top command display
+	if !m.minimal {
+		cmdDisplay := m.command.Value()
+		if cmdDisplay == "" {
+			cmdDisplay = "not set"
+		}
+		cmdLine := inactiveStyle.Render(fmt.Sprintf("cmd: %s", cmdDisplay))
+		sections = append(sections, lipgloss.PlaceHorizontal(m.w, lipgloss.Center, cmdLine))
 	}
-	cmdLine := inactiveStyle.Render(fmt.Sprintf("cmd: %s", cmdDisplay))
-	cmdTop := lipgloss.Place(m.w, 1, lipgloss.Center, lipgloss.Top, cmdLine)
 
-	var content string
+	// main content
+	var contentParts []string
+	if m.editingCommand {
+		contentParts = []string{m.command.View()}
+	} else {
+		contentParts = []string{m.username.View(), m.password.View()}
+	}
 
-	errorLine := ""
+	// reserve space for the error
+	contentParts = append(contentParts, "")
 	if m.errorMsg != "" {
-		errorLine = errorStyle.Render(m.errorMsg)
-	}
-
-	if m.editingCommand {
-		content = lipgloss.JoinVertical(lipgloss.Center,
-			m.command.View(),
-			"",
-			errorLine,
-		)
+		contentParts = append(contentParts, errorStyle.Render(m.errorMsg))
 	} else {
-		content = lipgloss.JoinVertical(lipgloss.Center,
-			m.username.View(),
-			m.password.View(),
-			"",
-			errorLine,
-		)
+		contentParts = append(contentParts, "")
 	}
 
-	var help string
-	if m.editingCommand {
-		help = inactiveStyle.Render("Enter confirm • ESC cancel")
-	} else {
-		help = inactiveStyle.Render("F2 edit command")
+	content := lipgloss.JoinVertical(lipgloss.Center, contentParts...)
+
+	// fix height based on minimal mode
+	mainHeight := m.h
+	if !m.minimal {
+		mainHeight = m.h - 2
+	}
+	main := lipgloss.Place(m.w, mainHeight, lipgloss.Center, lipgloss.Center, content)
+	sections = append(sections, main)
+
+	// bottom help display
+	if !m.minimal {
+		var helpDisplay string
+		if m.editingCommand {
+			helpDisplay = "Enter confirm • ESC cancel"
+		} else {
+			helpDisplay = "F2 edit command"
+		}
+		helpBar := lipgloss.PlaceHorizontal(m.w, lipgloss.Center, inactiveStyle.Render(helpDisplay))
+		sections = append(sections, helpBar)
 	}
 
-	main := lipgloss.Place(m.w, m.h-3, lipgloss.Center, lipgloss.Center, content)
-	helpBar := lipgloss.Place(m.w, 1, lipgloss.Center, lipgloss.Top, help)
-
-	return lipgloss.JoinVertical(lipgloss.Left, cmdTop, main, helpBar)
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
