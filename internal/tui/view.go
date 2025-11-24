@@ -7,7 +7,6 @@ import (
 )
 
 var (
-	accentStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	inactiveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	errorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 )

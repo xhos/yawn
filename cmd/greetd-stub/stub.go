@@ -90,21 +90,6 @@ func (s *server) process(req *greetd.Request, state *session) *greetd.Response {
 		}
 
 	case "post_auth_message_response":
-		if state.username == "" {
-			return &greetd.Response{
-				Type:        "error",
-				ErrorType:   "error",
-				Description: "no session",
-			}
-		}
-
-		if state.authenticated {
-			return &greetd.Response{
-				Type:        "error",
-				ErrorType:   "error",
-				Description: "already authenticated",
-			}
-		}
 
 		if state.username != s.username || req.Response == nil || *req.Response != s.password {
 			state.username = ""

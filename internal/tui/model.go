@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/xhos/yawn/internal/greetd"
 )
 
@@ -38,8 +39,9 @@ type Model struct {
 	preauth        bool
 	preauthWaiting bool
 
-	errorMsg string
-	w, h     int
+	errorMsg    string
+	accentColor string
+	w, h        int
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -49,13 +51,15 @@ func (m *Model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool) *Model {
+func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool, accentColor string) *Model {
+	accent := lipgloss.NewStyle().Foreground(lipgloss.Color("#" + accentColor))
+
 	usernameInput := textinput.New()
 	usernameInput.Placeholder = "username"
 	usernameInput.Width = inputWidth
 	usernameInput.Prompt = ""
-	usernameInput.PromptStyle = accentStyle
-	usernameInput.TextStyle = accentStyle
+	usernameInput.PromptStyle = accent
+	usernameInput.TextStyle = accent
 	if username != "" {
 		usernameInput.SetValue(username)
 	}
@@ -64,23 +68,29 @@ func InitialModel(sockPath, cmd, username string, inputWidth int, preauth bool) 
 	passwordInput.Placeholder = "password"
 	passwordInput.Width = inputWidth
 	passwordInput.Prompt = ""
+	passwordInput.PromptStyle = accent
+	passwordInput.TextStyle = accent
 	passwordInput.EchoMode = textinput.EchoPassword
 	passwordInput.EchoCharacter = '•'
 
 	commandInput := textinput.New()
 	commandInput.Placeholder = "session command"
+	commandInput.Width = inputWidth
 	commandInput.Prompt = ""
+	commandInput.PromptStyle = accent
+	commandInput.TextStyle = accent
 	if cmd != "" {
 		commandInput.SetValue(cmd)
 	}
 
 	m := &Model{
-		sockPath: sockPath,
-		username: usernameInput,
-		password: passwordInput,
-		command:  commandInput,
-		focused:  focusUsername,
-		preauth:  preauth,
+		sockPath:    sockPath,
+		username:    usernameInput,
+		password:    passwordInput,
+		command:     commandInput,
+		focused:     focusUsername,
+		preauth:     preauth,
+		accentColor: accentColor,
 	}
 
 	if username != "" {

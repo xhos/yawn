@@ -8,12 +8,13 @@ It's simple, it's dumb, it just works.
 
 Configuration is done via command-line flags:
 
-| Flag       | Default | Description                         |
-|------------|---------|-------------------------------------|
-| `-cmd`     | none    | Command to run for user session     |
-| `-preauth` | `false` | Start the auth loop immediately     |
-| `-user`    | none    | Force a specific username           |
-| `-width`   | `8`     | Width of the input fields           |
+| Flag       | Default   | Description                         |
+|------------|-----------|-------------------------------------|
+| `-cmd`     | none      | Command to run for user session     |
+| `-color`   | `f5f5f5`  | Accent color as hex without #       |
+| `-preauth` | `false`   | Start the auth loop immediately     |
+| `-user`    | none      | Force a specific username           |
+| `-width`   | `8`       | Width of the input fields           |
 
 ## Why another greeter?
 
