@@ -116,7 +116,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.starting = true
 			req := &greetd.Request{
 				Type: "start_session",
-				Cmd:  []string{"sh", "-c", m.command.Value()},
+				Cmd:  []string{m.command.Value()},
 				Env:  []string{},
 			}
 			if err := req.Encode(m.conn); err != nil {
